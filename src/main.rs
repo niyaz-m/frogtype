@@ -10,6 +10,12 @@ use crossterm::terminal::{
 use std::io::{self, Result, Stdout, Write};
 use std::time::{Duration, Instant};
 
+struct Characters {
+    typed_chars: i8,
+    correct_chars: i8,
+    wrong_chars: i8,
+}
+
 fn main() -> Result<()> {
     enable_raw_mode()?;
 
@@ -18,7 +24,7 @@ fn main() -> Result<()> {
     let timeout = Duration::from_secs(5);
 
     let mut stdout = io::stdout();
-    let text_to_print = "Hello, world!\n";
+    let text_to_print = "Hello, world! I like guys!\n";
 
     setup_terminal()?;
 
@@ -70,12 +76,35 @@ fn main() -> Result<()> {
     cleanup_terminal(stdout)?;
 
     println!("Time's up!");
+
+    let mut typing_session = Characters {
+        typed_chars: text.len() as i8,
+        correct_chars: 0,
+        wrong_chars: 0,
+    };
+
+    for (_, (text, text_to_print)) in text.chars().zip(text_to_print.chars()).enumerate() {
+        if text != text_to_print {
+            typing_session.wrong_chars += 1;
+        } else {
+            typing_session.correct_chars += 1;
+        }
+    }
+
+    println!("wrong chars: {}", typing_session.wrong_chars);
+    println!("correct chars: {}", typing_session.correct_chars);
+
+    let accuracy = (typing_session.correct_chars as f64 / text.len() as f64) * 100.0;
+    println!("Accuracy: {:.2}", accuracy);
+
     let current_wpm = wpm_calc(text.clone(), start_time);
     println!(
         "WPM: {:.0} | Time: {}s",
         current_wpm,
         start_time.elapsed().as_secs()
     );
+
+    println!("Text count: {}", typing_session.typed_chars);
     println!("Term size: {}, {}", width, height);
     println!("Text: {}", text);
     Ok(())
