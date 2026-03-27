@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     let timeout = Duration::from_secs(5);
 
     let mut stdout = io::stdout();
-    let text_to_print = "Hello, world!";
+    let text_to_print = "Hello, world!\n";
 
     setup_terminal()?;
 
@@ -34,6 +34,10 @@ fn main() -> Result<()> {
         SetForegroundColor(Color::Cyan),
         Print(text_to_print)
     )?;
+
+    stdout.flush()?;
+
+    queue!(stdout, MoveTo(x, y + 1), SetForegroundColor(Color::Blue))?;
 
     stdout.flush()?;
 
@@ -66,9 +70,29 @@ fn main() -> Result<()> {
     cleanup_terminal(stdout)?;
 
     println!("Time's up!");
-    println!("term size: {}, {}", width, height);
+    let current_wpm = wpm_calc(text.clone(), start_time);
+    println!(
+        "WPM: {:.0} | Time: {}s",
+        current_wpm,
+        start_time.elapsed().as_secs()
+    );
+    println!("Term size: {}, {}", width, height);
     println!("Text: {}", text);
     Ok(())
+}
+
+fn wpm_calc(text: String, start_time: Instant) -> f64 {
+    let text_len = text.len();
+
+    let elapsed_secs = start_time.elapsed().as_secs_f64();
+    if elapsed_secs < 1.0 {
+        return 0.0;
+    }
+
+    let minutes = elapsed_secs / 60.0;
+    let words = text_len as f64 / 5.0;
+
+    words / minutes
 }
 
 fn setup_terminal() -> io::Result<Stdout> {
