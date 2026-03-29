@@ -1,73 +1,40 @@
+mod session;
+
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode};
-use crossterm::execute;
-use crossterm::queue;
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::style::{Color, Print, SetForegroundColor};
 use crossterm::terminal::{
     self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
     enable_raw_mode,
 };
+use crossterm::{execute, queue};
 use std::io::{self, Result, Stdout, Write};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-struct Characters {
-    typed_chars: i8,
-    correct_chars: i8,
-    wrong_chars: i8,
-}
+use crate::session::TypingSession;
 
 fn main() -> Result<()> {
-    enable_raw_mode()?;
-
-    let mut text = String::new();
-    let start_time = Instant::now();
-    let timeout = Duration::from_secs(5);
-
-    let mut stdout = io::stdout();
-    let text_to_print = "Hello, world! I like guys!\n";
-
     setup_terminal()?;
 
-    let (width, height) = terminal::size()?;
-
-    let x = (width / 2).saturating_sub(text_to_print.len() as u16 / 2);
-    let y = height / 2;
-
-    queue!(
-        stdout,
-        Clear(ClearType::All),
-        MoveTo(x, y),
-        SetForegroundColor(Color::Cyan),
-        Print(text_to_print)
-    )?;
-
-    stdout.flush()?;
-
-    queue!(stdout, MoveTo(x, y + 1), SetForegroundColor(Color::Blue))?;
-
-    stdout.flush()?;
+    let mut stdout = io::stdout();
+    let target_text = "So beautiful, the space between. A painful reminder and a terrible dream.\n";
+    let mut session = session::TypingSession::new(&target_text);
 
     loop {
-        if start_time.elapsed() >= timeout {
-            break;
+        if session.start_time.elapsed() >= session.duration {
+            session.is_finished = true;
         }
 
+        draw_ui(&mut stdout, &session)?;
+
         if event::poll(Duration::from_millis(10))? {
-            if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    KeyCode::Char(c) => {
-                        text.push(c);
-                        print!("{}", c);
-                        io::stdout().flush()?;
-                    }
-                    KeyCode::Backspace => {
-                        if !text.is_empty() {
-                            text.pop();
-                            print!("\u{0008} \u{0008}");
-                            io::stdout().flush()?;
-                        }
-                    }
-                    _ => {}
+            if let Event::Key(key) = event::read()? {
+                if session.is_finished {
+                    //if key.code == KeyCode::Char('q') || key.code == KeyCode::Esc {
+                    break;
+                    //}
+                } else {
+                    handle_typing(&mut session, key)?;
                 }
             }
         }
@@ -75,53 +42,59 @@ fn main() -> Result<()> {
 
     cleanup_terminal(stdout)?;
 
-    println!("Time's up!");
-
-    let mut typing_session = Characters {
-        typed_chars: text.len() as i8,
-        correct_chars: 0,
-        wrong_chars: 0,
-    };
-
-    for (_, (text, text_to_print)) in text.chars().zip(text_to_print.chars()).enumerate() {
-        if text != text_to_print {
-            typing_session.wrong_chars += 1;
-        } else {
-            typing_session.correct_chars += 1;
-        }
-    }
-
-    println!("wrong chars: {}", typing_session.wrong_chars);
-    println!("correct chars: {}", typing_session.correct_chars);
-
-    let accuracy = (typing_session.correct_chars as f64 / text.len() as f64) * 100.0;
-    println!("Accuracy: {:.2}", accuracy);
-
-    let current_wpm = wpm_calc(text.clone(), start_time);
-    println!(
-        "WPM: {:.0} | Time: {}s",
-        current_wpm,
-        start_time.elapsed().as_secs()
+    let stats = format!(
+        "WPM: {:.2} | Accuracy: {:.2}%",
+        session.wpm(),
+        session.accuracy()
     );
-
-    println!("Text count: {}", typing_session.typed_chars);
-    println!("Term size: {}, {}", width, height);
-    println!("Text: {}", text);
+    println!("{}", stats);
+    println!("Time's up!");
+    println!("Text: {}", session.user_input);
     Ok(())
 }
 
-fn wpm_calc(text: String, start_time: Instant) -> f64 {
-    let text_len = text.len();
+fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
+    let (width, height) = terminal::size()?;
 
-    let elapsed_secs = start_time.elapsed().as_secs_f64();
-    if elapsed_secs < 1.0 {
-        return 0.0;
+    let x = (width / 2).saturating_sub(session.target_text.len() as u16 / 2);
+    let y = height / 2;
+
+    queue!(
+        stdout,
+        Clear(ClearType::All),
+        MoveTo(x, y),
+        SetForegroundColor(Color::Cyan),
+        Print(session.target_text.clone())
+    )?;
+
+    queue!(
+        stdout,
+        MoveTo(x, y + 1),
+        SetForegroundColor(Color::Blue),
+        Print(session.user_input.clone())
+    )?;
+
+    stdout.flush()?;
+    Ok(())
+}
+
+fn handle_typing(session: &mut TypingSession, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Char(c) => {
+            session.user_input.push(c);
+            print!("{}", c);
+            io::stdout().flush()?;
+        }
+        KeyCode::Backspace => {
+            if !session.user_input.is_empty() {
+                session.user_input.pop();
+                print!("\u{0008} \u{0008}");
+                io::stdout().flush()?;
+            }
+        }
+        _ => {}
     }
-
-    let minutes = elapsed_secs / 60.0;
-    let words = text_len as f64 / 5.0;
-
-    words / minutes
+    Ok(())
 }
 
 fn setup_terminal() -> io::Result<Stdout> {
