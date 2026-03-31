@@ -56,14 +56,6 @@ fn main() -> Result<()> {
 
     cleanup_terminal(stdout)?;
 
-    let stats = format!(
-        "WPM: {:.2} | Accuracy: {:.2}%",
-        session.wpm(),
-        session.accuracy()
-    );
-    println!("{}", stats);
-    println!("Time's up!");
-    println!("Text: {}", session.user_input);
     Ok(())
 }
 
@@ -73,9 +65,11 @@ fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
     let x = (width / 2).saturating_sub(session.target_text.len() as u16 / 2);
     let y = height / 2;
 
+    let (net_wpm, raw_wpm) = session.wpm();
     let stats = format!(
-        "WPM: {:.2} | Accuracy: {:.2}%",
-        session.wpm(),
+        "WPM: {:.2} | RAW_WPM: {:.2} | Accuracy: {:.2}%",
+        net_wpm,
+        raw_wpm,
         session.accuracy()
     );
 

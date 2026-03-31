@@ -33,42 +33,42 @@ impl TypingSession {
         }
     }
 
-    pub fn accuracy(&self) -> f64 {
-        let mut chars = CharacterStats {
-            correct_chars: 0,
-            wrong_chars: 0,
-        };
-        for (_, (user_input, target_text)) in self
-            .user_input
+    pub fn correct_chars_count(&self) -> usize {
+        self.user_input
             .chars()
             .zip(self.target_text.chars())
-            .enumerate()
-        {
-            if user_input != target_text {
-                chars.wrong_chars += 1;
-            } else {
-                chars.correct_chars += 1;
-            }
-        }
-
-        let correct_chars = chars.correct_chars as f64;
-        let user_input_len = self.user_input.len() as f64;
-        let accuracy = (correct_chars / user_input_len) * 100.0;
-        accuracy
+            .filter(|(u, t)| u == t)
+            .count()
     }
 
-    pub fn wpm(&self) -> f64 {
+    pub fn accuracy(&self) -> f64 {
+        let total = self.user_input.len();
+        if total == 0 {
+            return 100.0;
+        }
+
+        let correct = self.correct_chars_count() as f64;
+        (correct / total as f64) * 100.0
+    }
+
+    pub fn wpm(&self) -> (f64, f64) {
         let elapsed_secs = match self.state {
-            SessionState::Waiting => return 0.0,
+            SessionState::Waiting => return (0.0, 0.0),
             SessionState::Running => self.start_time.unwrap().elapsed().as_secs_f64(),
             SessionState::Finished => self.final_time.unwrap().as_secs_f64(),
         };
 
         let text_len = self.user_input.len();
-        let minutes = elapsed_secs / 60.0;
+        let correct_chars = self.correct_chars_count();
+
+        let net_words = correct_chars as f64 / 5.0;
         let words = text_len as f64 / 5.0;
-        let wpm = words / minutes;
-        wpm
+
+        let minutes = elapsed_secs / 60.0;
+        let net_wpm = net_words / minutes;
+        let raw_wpm = words / minutes;
+
+        (net_wpm, raw_wpm)
     }
 
     pub fn reset_sesssion(&mut self) {
