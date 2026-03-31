@@ -70,4 +70,11 @@ impl TypingSession {
         let wpm = words / minutes;
         wpm
     }
+
+    pub fn reset_sesssion(&mut self) {
+        self.user_input.clear();
+        self.state = SessionState::Waiting;
+        self.start_time = None;
+        self.final_time = None;
+    }
 }

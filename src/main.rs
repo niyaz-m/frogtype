@@ -44,11 +44,11 @@ fn main() -> Result<()> {
                         handle_typing(&mut session, key)?;
                     }
 
-                    SessionState::Finished => {
-                        if key.code == KeyCode::Char('q') {
-                            break;
-                        }
-                    }
+                    SessionState::Finished => match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Char('r') => session.reset_sesssion(),
+                        _ => {}
+                    },
                 }
             }
         }
