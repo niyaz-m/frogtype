@@ -23,33 +23,33 @@ fn main() -> Result<()> {
     loop {
         draw_ui(&mut stdout, &session)?;
 
-        if event::poll(Duration::from_millis(10))? {
-            if let Event::Key(key) = event::read()? {
-                match session.state {
-                    SessionState::Waiting => {
-                        if let KeyCode::Char(c) = key.code {
-                            session.state = SessionState::Running;
-                            session.start_time = Some(Instant::now());
-                            session.user_input.push(c);
-                        }
+        if event::poll(Duration::from_millis(10))?
+            && let Event::Key(key) = event::read()?
+        {
+            match session.state {
+                SessionState::Waiting => {
+                    if let KeyCode::Char(c) = key.code {
+                        session.state = SessionState::Running;
+                        session.start_time = Some(Instant::now());
+                        session.user_input.push(c);
                     }
-
-                    SessionState::Running => {
-                        let elapsed = session.start_time.unwrap().elapsed();
-                        if elapsed >= session.duration {
-                            session.state = SessionState::Finished;
-                            session.final_time = Some(elapsed);
-                        }
-
-                        handle_typing(&mut session, key)?;
-                    }
-
-                    SessionState::Finished => match key.code {
-                        KeyCode::Char('q') => break,
-                        KeyCode::Char('r') => session.reset_sesssion(),
-                        _ => {}
-                    },
                 }
+
+                SessionState::Running => {
+                    let elapsed = session.start_time.unwrap().elapsed();
+                    if elapsed >= session.duration {
+                        session.state = SessionState::Finished;
+                        session.final_time = Some(elapsed);
+                    }
+
+                    handle_typing(&mut session, key)?;
+                }
+
+                SessionState::Finished => match key.code {
+                    KeyCode::Char('q') => break,
+                    KeyCode::Char('r') => session.reset_sesssion(),
+                    _ => {}
+                },
             }
         }
     }
@@ -67,10 +67,12 @@ fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
 
     let (net_wpm, raw_wpm) = session.wpm();
     let stats = format!(
-        "WPM: {:.2} | RAW_WPM: {:.2} | Accuracy: {:.2}%",
+        "WPM: {:.2} | RAW_WPM: {:.2} | Accuracy: {:.2}% | Correct chars: {} | Wrong chars: {}",
         net_wpm,
         raw_wpm,
-        session.accuracy()
+        session.accuracy(),
+        session.stats.correct_chars,
+        session.stats.wrong_chars
     );
 
     match session.state {
@@ -108,19 +110,46 @@ fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
 
 fn handle_typing(session: &mut TypingSession, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Char(c) => {
-            session.user_input.push(c);
-            print!("{}", c);
-            io::stdout().flush()?;
-        }
-        KeyCode::Backspace => {
-            if !session.user_input.is_empty() {
-                session.user_input.pop();
-                print!("\u{0008} \u{0008}");
-                io::stdout().flush()?;
-            }
-        }
+        KeyCode::Char(c) => handle_char_input(session, c)?,
+        KeyCode::Backspace => handle_backspace(session)?,
         _ => {}
+    }
+    Ok(())
+}
+
+fn handle_char_input(session: &mut TypingSession, c: char) -> Result<()> {
+    let target_text: Vec<char> = session.target_text.chars().collect();
+    let current_index = session.user_input.len();
+
+    if current_index < target_text.len() {
+        let expected_char = target_text[current_index];
+
+        if c == expected_char {
+            session.stats.correct_chars += 1;
+        } else {
+            session.stats.wrong_chars += 1;
+        }
+    }
+    session.user_input.push(c);
+    print!("{}", c);
+    io::stdout().flush()?;
+    Ok(())
+}
+
+fn handle_backspace(session: &mut TypingSession) -> Result<()> {
+    if !session.user_input.is_empty()
+        && let Some(last_char) = session.user_input.pop()
+    {
+        let current_index = session.user_input.len();
+        let target_char = session.target_text.chars().nth(current_index).unwrap();
+
+        if last_char == target_char {
+            session.stats.correct_chars = session.stats.correct_chars.saturating_sub(1);
+        } else {
+            session.stats.wrong_chars = session.stats.wrong_chars.saturating_sub(1);
+        }
+        print!("\u{0008} \u{0008}");
+        io::stdout().flush()?;
     }
     Ok(())
 }

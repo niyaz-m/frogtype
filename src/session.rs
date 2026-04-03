@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-struct CharacterStats {
+pub struct CharacterStats {
     pub correct_chars: usize,
     pub wrong_chars: usize,
 }
@@ -15,6 +15,7 @@ pub enum SessionState {
 pub struct TypingSession {
     pub target_text: String,
     pub user_input: String,
+    pub stats: CharacterStats,
     pub state: SessionState,
     pub start_time: Option<Instant>,
     pub duration: Duration,
@@ -26,6 +27,10 @@ impl TypingSession {
         Self {
             target_text: text.to_string(),
             user_input: String::new(),
+            stats: CharacterStats {
+                correct_chars: 0,
+                wrong_chars: 0,
+            },
             state: SessionState::Waiting,
             start_time: Some(Instant::now()),
             duration: Duration::from_secs(5),
@@ -76,5 +81,7 @@ impl TypingSession {
         self.state = SessionState::Waiting;
         self.start_time = None;
         self.final_time = None;
+        self.stats.correct_chars = 0;
+        self.stats.wrong_chars = 0;
     }
 }
