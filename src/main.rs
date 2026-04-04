@@ -19,9 +19,16 @@ fn main() -> Result<()> {
     let mut stdout = io::stdout();
     let target_text = "So beautiful, the space between. A painful reminder and a terrible dream.\n";
     let mut session = session::TypingSession::new(&target_text);
-
     loop {
         draw_ui(&mut stdout, &session)?;
+
+        if session.state == SessionState::Running {
+            let elapsed = session.start_time.unwrap().elapsed();
+            if elapsed >= session.duration {
+                session.state = SessionState::Finished;
+                session.final_time = Some(elapsed);
+            }
+        }
 
         if event::poll(Duration::from_millis(10))?
             && let Event::Key(key) = event::read()?
@@ -35,15 +42,7 @@ fn main() -> Result<()> {
                     }
                 }
 
-                SessionState::Running => {
-                    let elapsed = session.start_time.unwrap().elapsed();
-                    if elapsed >= session.duration {
-                        session.state = SessionState::Finished;
-                        session.final_time = Some(elapsed);
-                    }
-
-                    handle_typing(&mut session, key)?;
-                }
+                SessionState::Running => handle_typing(&mut session, key)?,
 
                 SessionState::Finished => match key.code {
                     KeyCode::Char('q') => break,

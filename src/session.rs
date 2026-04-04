@@ -5,7 +5,7 @@ pub struct CharacterStats {
     pub wrong_chars: usize,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum SessionState {
     Waiting,
     Running,
