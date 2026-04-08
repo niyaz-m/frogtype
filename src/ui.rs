@@ -17,7 +17,8 @@ pub fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
 
     let (net_wpm, raw_wpm) = session.wpm();
     let stats = format!(
-        "WPM: {:.2} | RAW_WPM: {:.2} | Accuracy: {:.2}% | Correct chars: {} | Wrong chars: {}",
+        "Time: {:.2} | WPM: {:.2} | RAW_WPM: {:.2} | Accuracy: {:.2}% | Correct chars: {} | Wrong chars: {}",
+        session.time_remaining(),
         net_wpm,
         raw_wpm,
         session.accuracy(),

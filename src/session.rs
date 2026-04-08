@@ -76,6 +76,17 @@ impl TypingSession {
         (net_wpm, raw_wpm)
     }
 
+    pub fn time_remaining(&self) -> f64 {
+        match self.state {
+            SessionState::Waiting => self.duration.as_secs_f64(),
+            SessionState::Running => {
+                let elapsed = self.start_time.unwrap().elapsed();
+                self.duration.saturating_sub(elapsed).as_secs_f64()
+            }
+            SessionState::Finished => 0.0,
+        }
+    }
+
     pub fn reset_sesssion(&mut self) {
         self.user_input.clear();
         self.state = SessionState::Waiting;
