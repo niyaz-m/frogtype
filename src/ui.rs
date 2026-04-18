@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor::MoveTo,
+    cursor::{Hide, MoveTo, Show},
     queue,
     style::{Color, Print, SetForegroundColor},
     terminal::{self, Clear, ClearType},
@@ -28,30 +28,42 @@ pub fn draw_ui(stdout: &mut Stdout, session: &TypingSession) -> Result<()> {
 
     match session.state {
         SessionState::Waiting | SessionState::Running => {
-            queue!(
-                stdout,
-                Clear(ClearType::All),
-                MoveTo(x, y),
-                SetForegroundColor(Color::Cyan),
-                Print(session.target_text.clone())
-            )?;
+            queue!(stdout, Clear(ClearType::All), MoveTo(x, y))?;
 
-            queue!(
-                stdout,
-                MoveTo(x, y + 1),
-                SetForegroundColor(Color::Blue),
-                Print(session.user_input.clone())
-            )?;
+            for (i, target_char) in session.target_text.chars().enumerate() {
+                let user_char = session.user_input.chars().nth(i);
+
+                let color = match user_char {
+                    None => Color::DarkGrey,
+                    Some(c) if c == target_char => Color::White,
+                    Some(_) => Color::Red,
+                };
+
+                queue!(stdout, SetForegroundColor(color), Print(target_char))?;
+            }
 
             queue!(
                 stdout,
                 MoveTo(x, y + 5),
                 SetForegroundColor(Color::Yellow),
                 Print(stats),
+                SetForegroundColor(Color::Reset),
             )?;
+
+            let cursor_x = x + session.user_input.len() as u16;
+
+            queue!(stdout, MoveTo(cursor_x, y), Show)?;
         }
+
         SessionState::Finished => {
-            queue!(stdout, Clear(ClearType::All), MoveTo(x, y), Print(stats),)?;
+            queue!(
+                stdout,
+                Clear(ClearType::All),
+                MoveTo(x, y),
+                SetForegroundColor(Color::Yellow),
+                Hide,
+                Print(stats),
+            )?;
         }
     }
 
