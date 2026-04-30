@@ -1,3 +1,4 @@
+mod generator;
 mod input;
 mod session;
 mod ui;
@@ -15,14 +16,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{input::HandleInput, session::SessionState, ui::draw_ui};
+use crate::{generator::WordBank, input::HandleInput, session::SessionState, ui::draw_ui};
 
 fn main() -> Result<()> {
     setup_terminal()?;
 
     let mut stdout = io::stdout();
-    let target_text = "So beautiful, the space between. A painful reminder and a terrible dream.\n";
-    let mut session = session::TypingSession::new(target_text);
+
+    let word_bank = WordBank::init();
+
+    let target_text = word_bank.get_random_word(25);
+    let mut session = session::TypingSession::new(target_text.as_str());
 
     loop {
         draw_ui(&mut stdout, &session)?;
@@ -51,7 +55,10 @@ fn main() -> Result<()> {
 
                 SessionState::Finished => match key.code {
                     KeyCode::Char('q') => break,
-                    KeyCode::Char('r') => session.reset_sesssion(),
+                    KeyCode::Char('r') => {
+                        let new_text = word_bank.get_random_word(25);
+                        session.reset_sesssion(new_text);
+                    }
                     _ => {}
                 },
             }

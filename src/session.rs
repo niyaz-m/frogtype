@@ -87,7 +87,8 @@ impl TypingSession {
         }
     }
 
-    pub fn reset_sesssion(&mut self) {
+    pub fn reset_sesssion(&mut self, new_text: String) {
+        self.target_text = new_text;
         self.user_input.clear();
         self.state = SessionState::Waiting;
         self.start_time = None;
