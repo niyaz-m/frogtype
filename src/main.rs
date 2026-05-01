@@ -5,7 +5,7 @@ mod ui;
 
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     style::{Color, SetForegroundColor},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -42,6 +42,16 @@ fn main() -> Result<()> {
         if event::poll(Duration::from_millis(10))?
             && let Event::Key(key) = event::read()?
         {
+            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                if key.code == KeyCode::Char('r') {
+                    let new_text = word_bank.get_random_word(25);
+                    session.reset_sesssion(new_text);
+                    continue;
+                } else if key.code == KeyCode::Char('q') {
+                    break;
+                }
+            }
+
             match session.state {
                 SessionState::Waiting => {
                     if let KeyCode::Char(c) = key.code {
@@ -53,14 +63,7 @@ fn main() -> Result<()> {
 
                 SessionState::Running => HandleInput::handle_typing(&mut session, key)?,
 
-                SessionState::Finished => match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('r') => {
-                        let new_text = word_bank.get_random_word(25);
-                        session.reset_sesssion(new_text);
-                    }
-                    _ => {}
-                },
+                SessionState::Finished => {}
             }
         }
     }
